@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四邊形闖關王 - 逐門過關大冒險</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+        
+        body {
+            font-family: 'Zen Maru Gothic', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at top left, #1e1b4b, #0f172a);
+            min-height: 100vh;
+            color: #f8fafc;
+            touch-action: manipulation;
+        }
+
+        /* Door Animation Styles */
+        .door-frame {
+            perspective: 1000px;
+        }
+
+        .door-panel {
+            transform-origin: left center;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .door-open .door-panel {
+            transform: rotateY(-110deg);
+        }
+
+        .door-glow {
+            box-shadow: 0 0 35px rgba(56, 189, 248, 0.5);
+        }
+
+        /* Selection Card Bounce & Glow */
+        .shape-card {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .shape-card:hover {
+            transform: translateY(-4px) scale(1.02);
+        }
+
+        .shape-card.selected {
+            border-color: #38bdf8 !important;
+            background-color: rgba(14, 165, 233, 0.15) !important;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+            transform: translateY(-4px) scale(1.03);
+        }
+
+        .bounce-gentle {
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Pulse aura for active door */
+        .door-active-pulse {
+            animation: doorPulse 2s infinite alternate;
+        }
+
+        @keyframes doorPulse {
+            0% { box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+            100% { box-shadow: 0 0 35px rgba(56, 189, 248, 0.8); }
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen select-none">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-sky-400 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg text-xl font-black">
+                    <i class="fa-solid fa-kaaba"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-base md:text-xl text-white tracking-wide">四邊形闖關王：逐門過關大冒險</h1>
+                    <p class="text-[11px] text-sky-400 font-bold">香港小四數學 • 四邊形特性與包含關係</p>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center gap-2 md:gap-3">
+                <button onclick="openHandbook()" class="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-black text-xs rounded-xl border border-amber-500/40 flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-book-open text-amber-400"></i>
+                    <span>四邊形圖鑑</span>
+                </button>
+
+                <button id="sound-btn" onclick="toggleSound()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 border border-slate-700 transition">
+                    <i class="fa-solid fa-volume-high text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+
+        <!-- WELCOME SCREEN -->
+        <div id="screen-welcome" class="bg-slate-900/90 rounded-3xl p-6 md:p-10 border border-slate-800 shadow-2xl text-center max-w-2xl mx-auto w-full">
+            <div class="w-20 h-20 bg-gradient-to-tr from-sky-400 to-indigo-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 text-4xl bounce-gentle shadow-lg shadow-sky-500/20">
+                <i class="fa-solid fa-door-closed"></i>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-black text-white mb-2">四邊形「逐門過關」挑戰！</h2>
+            <p class="text-slate-300 text-sm mb-6 leading-relaxed font-bold">
+                城堡前設有 4 扇神奇幾何大門，你必須依照順序逐一挑戰解開門鎖！<br>
+                觀察 6 種四邊形，選出<span class="text-sky-400 font-black">所有符合該大門條件</span>的形狀才能通關！
+            </p>
+
+            <div class="grid grid-cols-2 gap-2.5 mb-6 text-left text-xs font-bold">
+                <div class="p-3 bg-blue-950/60 rounded-xl border border-blue-800/60 text-blue-200">
+                    <i class="fa-solid fa-key text-blue-400 mr-1"></i> 第一關：平行四邊形之門
+                </div>
+                <div class="p-3 bg-indigo-950/60 rounded-xl border border-indigo-800/60 text-indigo-200">
+                    <i class="fa-solid fa-key text-indigo-400 mr-1"></i> 第二關：長方形之門
+                </div>
+                <div class="p-3 bg-emerald-950/60 rounded-xl border border-emerald-800/60 text-emerald-200">
+                    <i class="fa-solid fa-key text-emerald-400 mr-1"></i> 第三關：菱形之門
+                </div>
+                <div class="p-3 bg-amber-950/60 rounded-xl border border-amber-800/60 text-amber-200">
+                    <i class="fa-solid fa-crown text-amber-400 mr-1"></i> 第四關：正方形之門
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-3.5 bg-gradient-to-r from-sky-400 to-blue-600 hover:from-sky-500 hover:to-blue-700 text-white font-black text-lg rounded-2xl shadow-lg shadow-sky-500/30 transition transform active:scale-95">
+                開始第一關冒險 <i class="fa-solid fa-play ml-2"></i>
+            </button>
+        </div>
+
+        <!-- STAGE GAME SCREEN -->
+        <div id="screen-game" class="hidden flex-col gap-5">
+
+            <!-- Stage Progress Indicator Bar -->
+            <div class="grid grid-cols-4 gap-2">
+                <div id="progress-step-1" class="p-2.5 rounded-2xl bg-slate-800 border border-slate-700 text-center transition flex items-center justify-center gap-1.5">
+                    <span class="w-5 h-5 rounded-full bg-slate-700 text-xs flex items-center justify-center font-black">1</span>
+                    <span class="text-xs font-bold hidden sm:inline">平行四邊形門</span>
+                </div>
+                <div id="progress-step-2" class="p-2.5 rounded-2xl bg-slate-800 border border-slate-700 text-center transition flex items-center justify-center gap-1.5 opacity-50">
+                    <span class="w-5 h-5 rounded-full bg-slate-700 text-xs flex items-center justify-center font-black">2</span>
+                    <span class="text-xs font-bold hidden sm:inline">長方形門</span>
+                </div>
+                <div id="progress-step-3" class="p-2.5 rounded-2xl bg-slate-800 border border-slate-700 text-center transition flex items-center justify-center gap-1.5 opacity-50">
+                    <span class="w-5 h-5 rounded-full bg-slate-700 text-xs flex items-center justify-center font-black">3</span>
+                    <span class="text-xs font-bold hidden sm:inline">菱形門</span>
+                </div>
+                <div id="progress-step-4" class="p-2.5 rounded-2xl bg-slate-800 border border-slate-700 text-center transition flex items-center justify-center gap-1.5 opacity-50">
+                    <span class="w-5 h-5 rounded-full bg-slate-700 text-xs flex items-center justify-center font-black">4</span>
+                    <span class="text-xs font-bold hidden sm:inline">正方形門</span>
+                </div>
+            </div>
+
+            <!-- Current Stage Banner & Door Portal -->
+            <div id="door-stage-card" class="bg-slate-900/90 rounded-3xl p-5 border border-slate-800 shadow-xl flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
+                
+                <!-- SVG Interactive Animated Door Frame -->
+                <div class="door-frame w-32 h-44 md:w-36 md:h-48 relative flex-shrink-0">
+                    <div id="door-glow-element" class="absolute inset-0 rounded-2xl bg-sky-500/20 border-2 border-sky-400 door-active-pulse flex items-center justify-center">
+                        <i id="door-portal-icon" class="fa-solid fa-dharmachakra text-sky-400 text-4xl animate-spin" style="animation-duration: 8s;"></i>
+                    </div>
+                    <!-- Opening Door Wing -->
+                    <div id="door-wing" class="door-panel absolute inset-0 bg-gradient-to-r from-slate-800 to-slate-900 border-2 border-sky-400/80 rounded-2xl shadow-2xl flex flex-col items-center justify-center p-2">
+                        <div class="w-10 h-10 rounded-full bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 mb-2">
+                            <i id="door-type-icon" class="fa-solid fa-door-closed text-xl"></i>
+                        </div>
+                        <div class="w-2 h-8 bg-sky-400/30 rounded-full border border-sky-400/50 mb-2"></div>
+                        <span id="door-stage-badge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-500/30 text-sky-300 border border-sky-400/30">STAGE 1</span>
+                    </div>
+                </div>
+
+                <!-- Stage Condition Information -->
+                <div class="flex-1 text-center md:text-left space-y-2">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 bg-sky-500/10 border border-sky-500/30 rounded-full text-sky-400 text-xs font-bold">
+                        <i class="fa-solid fa-key"></i> <span id="stage-number-text">第一關門鎖條件</span>
+                    </div>
+                    <h3 id="stage-door-title" class="text-xl md:text-2xl font-black text-white">【平行四邊形之門】</h3>
+                    <p id="stage-condition-desc" class="text-sm font-bold text-sky-200 bg-sky-950/40 p-3 rounded-2xl border border-sky-800/50">
+                        通關條件：請選出所有具備「兩組對邊平行」特性的四邊形！
+                    </p>
+                    
+                    <!-- Toggle Geometry Markings -->
+                    <div class="pt-1 flex justify-center md:justify-start">
+                        <button onclick="toggleHelperMarks()" id="toggle-marks-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-eye text-sky-400"></i>
+                            <span>幾何標記：顯示中 (直角∟ / 等長邊| / 平行箭頭)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shape Selection Grid -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-black text-sm text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-hand-pointer text-sky-400"></i>
+                        請點擊選取所有可以通過這扇門的四邊形卡牌：
+                    </h4>
+                    <span class="text-xs font-bold text-sky-400">（可多選）</span>
+                </div>
+
+                <div id="shapes-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <!-- 6 Shape Cards dynamically injected here -->
+                </div>
+            </div>
+
+            <!-- Submit Verification Button -->
+            <div class="pt-2 flex justify-end">
+                <button onclick="verifyStageAnswer()" class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-sky-400 to-blue-600 hover:from-sky-500 hover:to-blue-700 text-white font-black text-base rounded-2xl shadow-lg shadow-sky-500/20 transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <span>驗證門鎖解開</span>
+                    <i class="fa-solid fa-key"></i>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- VICTORY SCREEN -->
+        <div id="screen-victory" class="hidden bg-slate-900/90 rounded-3xl p-6 md:p-10 border border-slate-800 shadow-2xl text-center max-w-2xl mx-auto w-full">
+            <div class="w-20 h-20 bg-amber-500/20 text-amber-400 rounded-3xl flex items-center justify-center mx-auto mb-4 text-4xl bounce-gentle border border-amber-500/30">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-black text-white mb-2">恭喜！全部 4 扇大門完美解鎖！</h2>
+            <p class="text-sky-400 font-black text-base mb-5">你已成功掌握四邊形的特性與包含關係！</p>
+            
+            <div class="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 mb-6 text-left space-y-2.5 text-xs md:text-sm font-bold text-slate-300">
+                <div class="font-black text-amber-400 border-b border-slate-800 pb-2 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-graduation-cap"></i> 核心幾何包容關係總結：
+                </div>
+                <p><i class="fa-solid fa-star text-amber-400 mr-1.5"></i> <strong class="text-white">正方形（全能王者）</strong>：同時擁有「4 條邊一樣長」與「4 個角都是直角」，因此能順利通過<span class="text-sky-400">全部 4 扇大門</span>！</p>
+                <p><i class="fa-solid fa-check text-sky-400 mr-1.5"></i> <strong class="text-white">長方形 & 菱形</strong>：都擁有「兩組對邊平行」，因此都能通過【平行四邊形之門】。</p>
+                <p><i class="fa-solid fa-info-circle text-indigo-400 mr-1.5"></i> <strong class="text-white">梯形</strong>：只有「一組對邊平行」，不符合平行四邊形門的要求。</p>
+            </div>
+
+            <button onclick="restartGame()" class="w-full py-3.5 bg-gradient-to-r from-sky-400 to-blue-600 hover:from-sky-500 hover:to-blue-700 text-white font-black text-lg rounded-2xl shadow-lg transition">
+                再次挑戰過關 <i class="fa-solid fa-rotate-right ml-2"></i>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- HANDBOOK MODAL -->
+    <div id="modal-handbook" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 rounded-3xl p-5 md:p-7 max-w-lg w-full border border-slate-800 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-800">
+                <h3 class="text-lg font-black text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open"></i> 四邊形幾何圖鑑寶箱
+                </h3>
+                <button onclick="closeHandbook()" class="text-slate-400 hover:text-white font-black text-xl">✕</button>
+            </div>
+            
+            <div class="overflow-y-auto space-y-3 pr-1 text-xs md:text-sm font-bold">
+                <div class="p-3 bg-blue-950/40 rounded-2xl border border-blue-800/40">
+                    <div class="font-black text-blue-300 text-sm mb-1">🚪 平行四邊形之門</div>
+                    <p class="text-slate-300">條件：兩組對邊平行。<br><span class="text-sky-400">可通過：平行四邊形、長方形、菱形、正方形</span></p>
+                </div>
+                <div class="p-3 bg-indigo-950/40 rounded-2xl border border-indigo-800/40">
+                    <div class="font-black text-indigo-300 text-sm mb-1">🚪 長方形之門</div>
+                    <p class="text-slate-300">條件：4 個角都是直角 (90°)。<br><span class="text-indigo-400">可通過：長方形、正方形</span></p>
+                </div>
+                <div class="p-3 bg-emerald-950/40 rounded-2xl border border-emerald-800/40">
+                    <div class="font-black text-emerald-300 text-sm mb-1">🚪 菱形之門</div>
+                    <p class="text-slate-300">條件：4 條邊一樣長。<br><span class="text-emerald-400">可通過：菱形、正方形</span></p>
+                </div>
+                <div class="p-3 bg-amber-950/40 rounded-2xl border border-amber-800/40">
+                    <div class="font-black text-amber-300 text-sm mb-1">👑 正方形之門</div>
+                    <p class="text-slate-300">條件：4 條邊一樣長 AND 4 個角都是直角。<br><span class="text-amber-400">可通過：只有正方形！</span></p>
+                </div>
+            </div>
+
+            <button onclick="closeHandbook()" class="mt-4 w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs md:text-sm rounded-xl transition">
+                明白規則，回到關卡
+            </button>
+        </div>
+    </div>
+
+    <!-- FEEDBACK MODAL -->
+    <div id="modal-feedback" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-800 shadow-2xl text-center">
+            <div id="modal-icon-bg" class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
+                <i id="modal-icon" class="fa-solid"></i>
+            </div>
+            <h3 id="modal-title" class="text-xl font-black mb-2 text-white">開鎖結果</h3>
+            <p id="modal-msg" class="text-slate-300 font-bold text-xs md:text-sm mb-5 leading-relaxed text-left whitespace-pre-line bg-slate-950/60 p-4 rounded-2xl border border-slate-800"></p>
+            <button id="modal-btn" onclick="closeModal()" class="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white font-black text-sm rounded-xl shadow-md transition">
+                繼續關卡
+            </button>
+        </div>
+    </div>
+
+    <!-- Web Audio API & Game Logic Script -->
+    <script>
+        /* --- Audio Synthesizer (Web Audio API) --- */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let soundEnabled = true;
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'gate-open') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(350, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.35);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(140, audioCtx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(550, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.05);
+                }
+            } catch(e){}
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('sound-btn');
+            btn.innerHTML = soundEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-rose-400"></i>';
+        }
+
+        /* --- Geometry Marking Toggle State --- */
+        let showHelperMarks = true;
+
+        function toggleHelperMarks() {
+            playSound('click');
+            showHelperMarks = !showHelperMarks;
+            const btn = document.getElementById('toggle-marks-btn');
+            btn.querySelector('span').innerText = showHelperMarks ? "幾何標記：顯示中 (直角∟ / 等長邊| / 平行箭頭)" : "幾何標記：隱藏中";
+            btn.querySelector('i').className = showHelperMarks ? "fa-solid fa-eye text-sky-400" : "fa-solid fa-eye-slash text-slate-500";
+            renderShapeCards();
+        }
+
+        /* --- High Quality SVG Shape Generator --- */
+        function generateSVG(shapeId) {
+            let svg = `<svg viewBox="0 0 160 140" class="w-full h-full">`;
+            const mainStroke = "#38bdf8";
+            const markColor = "#f43f5e";
+
+            if (shapeId === 'square') {
+                svg += `<rect x="35" y="25" width="90" height="90" fill="#0284c7" fill-opacity="0.2" stroke="${mainStroke}" stroke-width="3.5" rx="2"/>`;
+                if (showHelperMarks) {
+                    // Right angles
+                    svg += `<path d="M 35 37 L 47 37 L 47 25" fill="none" stroke="${markColor}" stroke-width="2"/>
+                            <path d="M 125 37 L 113 37 L 113 25" fill="none" stroke="${markColor}" stroke-width="2"/>
+                            <path d="M 35 103 L 47 103 L 47 115" fill="none" stroke="${markColor}" stroke-width="2"/>
+                            <path d="M 125 103 L 113 103 L 113 115" fill="none" stroke="${markColor}" stroke-width="2"/>`;
+                    // Equal ticks
+                    svg += `<line x1="80" y1="20" x2="80" y2="30" stroke="${mainStroke}" stroke-width="2"/>
+                            <line x1="80" y1="110" x2="80" y2="120" stroke="${mainStroke}" stroke-width="2"/>
+                            <line x1="30" y1="70" x2="40" y2="70" stroke="${mainStroke}" stroke-width="2"/>
+                            <line x1="120" y1="70" x2="130" y2="70" stroke="${mainStroke}" stroke-width="2"/>`;
+                }
+            } else if (shapeId === 'rectangle') {
+                svg += `<rect x="20" y="35" width="120" height="70" fill="#6366f1" fill-opacity="0.2" stroke="#818cf8" stroke-width="3.5" rx="2"/>`;
+                if (showHelperMarks) {
+                    // Right angles
+                    svg += `<path d="M 20 47 L 32 47 L 32 35" fill="none" stroke="${markColor}" stroke-width="2"/>
+                            <path d="M 140 47 L 128 47 L 128 35" fill="none" stroke="${markColor}" stroke-width="2"/>
+                            <path d="M 20 93 L 32 93 L 32 105" fill="none" stroke="${markColor}" stroke-width="2"/>
+                            <path d="M 140 93 L 128 93 L 128 105" fill="none" stroke="${markColor}" stroke-width="2"/>`;
+                }
+            } else if (shapeId === 'rhombus') {
+                svg += `<polygon points="80,15 135,70 80,125 25,70" fill="#10b981" fill-opacity="0.2" stroke="#34d399" stroke-width="3.5"/>`;
+                if (showHelperMarks) {
+                    svg += `<line x1="50" y1="40" x2="56" y2="48" stroke="#34d399" stroke-width="2"/>
+                            <line x1="104" y1="40" x2="110" y2="48" stroke="#34d399" stroke-width="2"/>
+                            <line x1="50" y1="100" x2="56" y2="92" stroke="#34d399" stroke-width="2"/>
+                            <line x1="104" y1="100" x2="110" y2="92" stroke="#34d399" stroke-width="2"/>`;
+                }
+            } else if (shapeId === 'parallelogram') {
+                svg += `<polygon points="45,30 145,30 115,110 15,110" fill="#0284c7" fill-opacity="0.2" stroke="${mainStroke}" stroke-width="3.5"/>`;
+                if (showHelperMarks) {
+                    // Parallel arrows
+                    svg += `<path d="M 90 25 L 98 30 L 90 35" fill="none" stroke="${mainStroke}" stroke-width="2"/>
+                            <path d="M 60 105 L 68 110 L 60 115" fill="none" stroke="${mainStroke}" stroke-width="2"/>`;
+                }
+            } else if (shapeId === 'trapezoid') {
+                svg += `<polygon points="50,30 110,30 140,110 20,110" fill="#f59e0b" fill-opacity="0.2" stroke="#fbbf24" stroke-width="3.5"/>`;
+                if (showHelperMarks) {
+                    svg += `<path d="M 75 25 L 83 30 L 75 35" fill="none" stroke="#fbbf24" stroke-width="2"/>
+                            <path d="M 75 105 L 83 110 L 75 115" fill="none" stroke="#fbbf24" stroke-width="2"/>`;
+                }
+            } else if (shapeId === 'irregular') {
+                svg += `<polygon points="35,25 135,40 110,120 25,95" fill="#64748b" fill-opacity="0.2" stroke="#94a3b8" stroke-width="3.5"/>`;
+            }
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+        /* --- Master Shapes Dataset --- */
+        const allShapes = [
+            { id: "square", name: "正方形", desc: "4 邊等長 + 4 角直角" },
+            { id: "rectangle", name: "長方形", desc: "4 角直角 + 對邊平行" },
+            { id: "rhombus", name: "菱形", desc: "4 邊等長 + 對邊平行" },
+            { id: "parallelogram", name: "平行四邊形", desc: "兩組對邊平行" },
+            { id: "trapezoid", name: "梯形", desc: "只有一組對邊平行" },
+            { id: "irregular", name: "一般四邊形", desc: "無對邊平行或等長" }
+        ];
+
+        /* --- Sequential Stage Rules Dataset --- */
+        const stagesData = [
+            {
+                stage: 1,
+                doorName: "【第一關：平行四邊形之門】",
+                badgeText: "STAGE 1",
+                conditionText: "請選出所有具備「兩組對邊平行」特性的四邊形！",
+                validShapeIds: ["parallelogram", "rectangle", "rhombus", "square"],
+                feedbackTitle: "🎉 第一關解鎖成功！",
+                feedbackMsg: "【平行四邊形家族揭秘】\n所有「兩組對邊平行」的圖形都可以通過這扇門！\n\n💡 聰明的你發現了嗎？\n長方形、菱形、正方形都有「兩組對邊平行」，所以牠們通通都是【平行四邊形家族】的一員喔！"
+            },
+            {
+                stage: 2,
+                doorName: "【第二關：長方形之門】",
+                badgeText: "STAGE 2",
+                conditionText: "請選出所有具備「4 個角都是直角」特性的四邊形！",
+                validShapeIds: ["rectangle", "square"],
+                feedbackTitle: "⚡ 第二關解鎖成功！",
+                feedbackMsg: "【長方形特性揭秘】\n只要 4 個角都是直角的四邊形就可以通關！\n\n💡 請注意：\n正方形也有 4 個直角，所以正方形同時也是一種特別的【長方形】！"
+            },
+            {
+                stage: 3,
+                doorName: "【第三關：菱形之門】",
+                badgeText: "STAGE 3",
+                conditionText: "請選出所有具備「4 條邊一樣長」特性的四邊形！",
+                validShapeIds: ["rhombus", "square"],
+                feedbackTitle: "💎 第三關解鎖成功！",
+                feedbackMsg: "【菱形特性揭秘】\n只要 4 條邊一樣長的四邊形就能通關！\n\n💡 發現秘密：\n正方形的 4 條邊也全都一樣長，所以正方形同時也是一種特別的【菱形】！"
+            },
+            {
+                stage: 4,
+                doorName: "【第四關：正方形之門】",
+                badgeText: "STAGE 4",
+                conditionText: "請選出所有具備「4條邊一樣長 + 4個角都是直角」特性的四邊形！",
+                validShapeIds: ["square"],
+                feedbackTitle: "👑 終極正方形門開啟！",
+                feedbackMsg: "【全能王者現身】\n正方形是最完美的四邊形！只有它同時擁有「4邊等長」與「4角直角」！\n\n🌟 回顧這 4 關，正方形通過了全部的門！\n這代表正方形同時是：平行四邊形、長方形也是菱形！"
+            }
+        ];
+
+        /* --- Game State Variables --- */
+        let currentStageIndex = 0; // 0 to 3
+        let selectedShapeIds = new Set();
+
+        /* --- Flow Control --- */
+        function startGame() {
+            playSound('click');
+            document.getElementById('screen-welcome').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            document.getElementById('screen-game').classList.add('flex');
+            
+            currentStageIndex = 0;
+            loadStage(currentStageIndex);
+        }
+
+        function loadStage(index) {
+            const stage = stagesData[index];
+            selectedShapeIds.clear();
+
+            // Progress bar highlight
+            for (let i = 1; i <= 4; i++) {
+                const stepEl = document.getElementById(`progress-step-${i}`);
+                if (i <= index + 1) {
+                    stepEl.className = "p-2.5 rounded-2xl bg-sky-500/20 border border-sky-400 text-center transition flex items-center justify-center gap-1.5 text-sky-300 font-black";
+                } else {
+                    stepEl.className = "p-2.5 rounded-2xl bg-slate-800 border border-slate-700 text-center transition flex items-center justify-center gap-1.5 opacity-40 text-slate-400 font-bold";
+                }
+            }
+
+            // Door Stage Details
+            document.getElementById('stage-number-text').innerText = `第 ${index + 1} 關門鎖條件`;
+            document.getElementById('stage-door-title').innerText = stage.doorName;
+            document.getElementById('stage-condition-desc').innerText = `通關條件：${stage.conditionText}`;
+            document.getElementById('door-stage-badge').innerText = stage.badgeText;
+
+            // Reset Door Animation
+            const doorCard = document.getElementById('door-stage-card');
+            doorCard.classList.remove('door-open');
+
+            // Render Cards
+            renderShapeCards();
+        }
+
+        function renderShapeCards() {
+            const grid = document.getElementById('shapes-grid');
+            grid.innerHTML = '';
+
+            allShapes.forEach(shape => {
+                const isSelected = selectedShapeIds.has(shape.id);
+                const card = document.createElement('div');
+                card.className = `shape-card cursor-pointer bg-slate-900 border-2 ${isSelected ? 'selected border-sky-400' : 'border-slate-800'} rounded-2xl p-3 flex flex-col items-center text-center transition`;
+                card.onclick = () => toggleShapeSelection(shape.id);
+
+                card.innerHTML = `
+                    <div class="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center p-1">
+                        ${generateSVG(shape.id)}
+                    </div>
+                    <div class="font-black text-sm text-white mt-1">${shape.name}</div>
+                    <div class="text-[10px] text-slate-400 font-bold">${shape.desc}</div>
+                    <div class="mt-2 w-5 h-5 rounded-md border border-slate-700 flex items-center justify-center ${isSelected ? 'bg-sky-500 border-sky-400 text-white' : 'bg-slate-800'}">
+                        ${isSelected ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleShapeSelection(shapeId) {
+            playSound('click');
+            if (selectedShapeIds.has(shapeId)) {
+                selectedShapeIds.delete(shapeId);
+            } else {
+                selectedShapeIds.add(shapeId);
+            }
+            renderShapeCards();
+        }
+
+        function verifyStageAnswer() {
+            const stage = stagesData[currentStageIndex];
+            const targetSet = new Set(stage.validShapeIds);
+
+            // Compare selected vs target
+            let isExactMatch = (selectedShapeIds.size === targetSet.size) &&
+                [...selectedShapeIds].every(id => targetSet.has(id));
+
+            if (isExactMatch) {
+                playSound('gate-open');
+                
+                // Trigger Door Opening Visual
+                document.getElementById('door-stage-card').classList.add('door-open');
+
+                showModal(
+                    true,
+                    stage.feedbackTitle,
+                    stage.feedbackMsg,
+                    () => {
+                        currentStageIndex++;
+                        if (currentStageIndex < stagesData.length) {
+                            loadStage(currentStageIndex);
+                        } else {
+                            finishAllStages();
+                        }
+                    }
+                );
+            } else {
+                playSound('wrong');
+
+                // Determine missed or wrongly selected shapes for constructive feedback
+                let missedNames = [];
+                let wrongNames = [];
+
+                allShapes.forEach(s => {
+                    const isSelected = selectedShapeIds.has(s.id);
+                    const isTarget = targetSet.has(s.id);
+
+                    if (isTarget && !isSelected) missedNames.push(s.name);
+                    if (!isTarget && isSelected) wrongNames.push(s.name);
+                });
+
+                let errorDesc = "大門鎖定！請再仔細檢查一下：\n\n";
+                if (missedNames.length > 0) {
+                    errorDesc += `💡 你漏選了：${missedNames.join('、')}\n（提示：牠們也符合這扇門的條件喔！）\n\n`;
+                }
+                if (wrongNames.length > 0) {
+                    errorDesc += `⚠️ 不小心選錯了：${wrongNames.join('、')}\n（牠們不符合這扇門的規定喔！）`;
+                }
+
+                showModal(false, "鎖碼不吻合！再試一次", errorDesc, null);
+            }
+        }
+
+        function finishAllStages() {
+            confetti({ particleCount: 180, spread: 90, origin: { y: 0.6 } });
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('flex');
+            document.getElementById('screen-victory').classList.remove('hidden');
+        }
+
+        function restartGame() {
+            playSound('click');
+            document.getElementById('screen-victory').classList.add('hidden');
+            document.getElementById('screen-welcome').classList.remove('hidden');
+        }
+
+        /* --- HANDBOOK MODAL --- */
+        function openHandbook() {
+            playSound('click');
+            document.getElementById('modal-handbook').classList.remove('hidden');
+        }
+
+        function closeHandbook() {
+            playSound('click');
+            document.getElementById('modal-handbook').classList.add('hidden');
+        }
+
+        /* --- FEEDBACK MODAL --- */
+        let modalCallback = null;
+
+        function showModal(isSuccess, title, msg, onConfirm) {
+            const modal = document.getElementById('modal-feedback');
+            const iconBg = document.getElementById('modal-icon-bg');
+            const icon = document.getElementById('modal-icon');
+            const titleEl = document.getElementById('modal-title');
+            const msgEl = document.getElementById('modal-msg');
+            const btn = document.getElementById('modal-btn');
+
+            modalCallback = onConfirm;
+
+            if (isSuccess) {
+                iconBg.className = "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                icon.className = "fa-solid fa-door-open";
+                titleEl.className = "text-xl font-black mb-1 text-emerald-300";
+                btn.className = "w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-sm rounded-xl shadow-md transition";
+                btn.innerText = "進入下一關 ➔";
+            } else {
+                iconBg.className = "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                icon.className = "fa-solid fa-lock";
+                titleEl.className = "text-xl font-black mb-1 text-rose-300";
+                btn.className = "w-full py-3 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm rounded-xl shadow-md transition";
+                btn.innerText = "重新思考選擇";
+            }
+
+            titleEl.innerText = title;
+            msgEl.innerText = msg;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            playSound('click');
+            document.getElementById('modal-feedback').classList.add('hidden');
+            if (modalCallback) {
+                const cb = modalCallback;
+                modalCallback = null;
+                cb();
+            }
+        }
+    </script>
+</body>
+</html>
